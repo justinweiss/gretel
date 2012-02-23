@@ -39,21 +39,42 @@ module Gretel
       name, params = args[0], args[1..-1]
       
       crumb = Crumbs.get_crumb(name, *params)
-      out = link_to_if(link_last, crumb.link.text, crumb.link.url, crumb.link.options)
-      
+      out = [crumb_link_if(link_last, crumb, options)]
+
       while parent = crumb.parent
         last_parent = parent.name
         crumb = Crumbs.get_crumb(parent.name, *parent.params)
-        out = link_to(crumb.link.text, crumb.link.url, crumb.link.options) + " " + separator + " " + out
+        out.unshift(crumb_link(crumb, options))
       end
       
       # TODO: Refactor this
       if options[:autoroot] && name != :root && last_parent != :root
         crumb = Crumbs.get_crumb(:root)
-        out = link_to(crumb.link.text, crumb.link.url, crumb.link.options) + " " + separator + " " + out
+        out.unshift(crumb_link(crumb, options))
+      end
+
+      if options[:microformat]
+        out = out.map {|breadcrumb_link| "<span itemscope itemtype=\"http://data-vocabulary.org/Breadcrumb\">#{breadcrumb_link}</span>"}
       end
       
-      out
+      out.join(" #{separator} ").html_safe
+    end
+
+    def crumb_link_if(condition, crumb, options = {})
+      if options[:microformat]
+        crumb_link_text = content_tag(:span, crumb.link.text, :itemprop => 'title')
+        link_options = crumb.link.options.reverse_merge({:itemprop => 'url'})
+      else
+        crumb_link_text = crumb.link.text
+        link_options = crumb.link.options
+      end
+      
+      output = link_to_if(condition, crumb_link_text, crumb.link.url, link_options)
+      output
+    end
+
+    def crumb_link(crumb, options = {})
+      crumb_link_if(true, crumb, options)
     end
   end
 end
